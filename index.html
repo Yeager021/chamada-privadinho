@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat sobre vídeo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        .video-background {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        .video-background video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            z-index: -1;
+        }
+        .avatar-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .avatar-container img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .live-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: red;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 5px red; }
+            50% { box-shadow: 0 0 20px red; }
+        }
+        .chat-container {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            padding: 0 20px;
+            z-index: 10;
+        }
+        .chat-message {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 10px 0;
+            max-width: 70%;
+            border-radius: 20px;
+            opacity: 0;
+            animation: slide-up 5s ease-in-out forwards;
+            word-wrap: break-word;
+        }
+        .chat-message.left {
+            background-color: rgba(60, 60, 60, 0.8);
+            justify-content: flex-start;
+            color: white;
+        }
+        .chat-message.right {
+            background-color: #E6005C;
+            color: white;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+        @keyframes slide-up {
+            0% { transform: translateY(30px); opacity: 0; }
+            20% { transform: translateY(0); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translateY(-30px); opacity: 0; }
+        }
+        .message-container {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        .message-container input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            background-color: #fff;
+            outline: none;
+        }
+        .message-container button {
+            background-color: #E6005C;
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+        }
+        .controls-container {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 15;
+        }
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+            border-color: white;
+        }
+        .control-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        .notification {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
+            z-index: 20;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .notification.show {
+            opacity: 1;
+            visibility: visible;
+            top: 60px;
+        }
+        .lucia-notifications {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 25;
+            pointer-events: none;
+        }
+        .lucia-notification {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .lucia-notification.show {
+            opacity: 1;
+            visibility: visible;
+            top: 60px;
+        }
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .permission-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .permission-modal .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+        .permission-modal.show .modal-content {
+            transform: scale(1);
+        }
+        .permission-modal p {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .permission-modal .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .permission-modal button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+120            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .permission-modal .btn-yes {
+            background: #E6005C;
+            color: white;
+        }
+        .permission-modal .btn-no {
+            background: #eee;
+            color: #333;
+        }
+        .permission-modal button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* TELA INICIAL */
+        #entryScreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.98);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #entryScreen .online-badge {
+            margin-bottom: 20px;
+            padding: 12px 24px;
+            background: #E6005C;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            animation: pulse 1.5s infinite;
+        }
+        #enterBtn {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,212,255,0.4);
+            transition: 0.3s;
+        }
+        #enterBtn:hover {
+            background: #00b8e6;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,212,255,0.6);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TELA INICIAL -->
+    <div id="entryScreen">
+        <div class="online-badge">Lucia esta online!</div>
+        <button id="enterBtn">Entrar</button>
+    </div>
+
+    <div class="video-background">
+        <!-- Vídeo carregado via JavaScript -->
+        <video id="callVideo" playsinline></video>
+
+        <div class="avatar-container">
+            <img src="images/foto2.jpg" alt="Avatar">
+        </div>
+        <div class="live-badge">Ao Vivo</div>
+        <div class="chat-container" id="chatContainer"></div>
+        <div class="message-container">
+            <input type="text" id="messageInput" placeholder="Mensagem">
+            <button onclick="sendMessage()">Enviar</button>
+        </div>
+        <div class="controls-container">
+            <button class="control-btn" id="cameraBtn" title="Ligar câmera">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                    <path d="M3 9a2 2 0 0 1 2-2h2.17l1.26-1.88A1 1 0 0 1 9.25 5h5.5a1 1 0 0 1 .83.44L16.84 7H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/>
+                </svg>
+            </button>
+            <button class="control-btn" id="audioBtn" title="Ligar áudio">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+                    <path d="M19 11a7 7 0 0 1-14 0"/>
+                    <path d="M12 18v3"/>
+                    <path d="M8 21h8"/>
+                </svg>
+            </button>
+        </div>
+        <div id="notification" class="notification"></div>
+        <div id="luciaNotifications" class="lucia-notifications"></div>
+    </div>
+
+    <div id="permissionModal" class="permission-modal">
+        <div class="modal-content">
+            <p id="permissionText"></p>
+            <div class="btn-group">
+                <button class="btn-yes" id="btnYes">Sim</button>
+                <button class="btn-no" id="btnNo">Não</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ====== LINK DO VÍDEO (ALTERE AQUI) ======
+        const VIDEO_URL = "http://video.vps.gnndigital.uk:8080/videos/videocam1.mp4"; // ← COLOQUE SEU LINK AQUI
+
+        const chatContainer = document.getElementById('chatContainer');
+        const callVideo = document.getElementById('callVideo');
+        const luciaNotifContainer = document.getElementById('luciaNotifications');
+        const modal = document.getElementById('permissionModal');
+        const permissionText = document.getElementById('permissionText');
+        const btnYes = document.getElementById('btnYes');
+        const btnNo = document.getElementById('btnNo');
+        let messageShown = {};
+        let luciaNotifShown = {};
+        let pendingAction = null;
+
+        // ====== CARREGA VÍDEO VIA URL ======
+        callVideo.src = VIDEO_URL;
+        callVideo.load();
+
+        function showNotification(text, duration = 3000) {
+            const notif = document.getElementById('notification');
+            notif.textContent = text;
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), duration);
+        }
+
+        function showLuciaNotification(text, duration = 3000) {
+            const notif = document.createElement('div');
+            notif.className = 'lucia-notification';
+            notif.textContent = text;
+            luciaNotifContainer.appendChild(notif);
+            setTimeout(() => notif.classList.add('show'), 100);
+            setTimeout(() => {
+                notif.classList.remove('show');
+                setTimeout(() => notif.remove(), 400);
+            }, duration);
+        }
+
+        function showChatMessage(sender, message, position) {
+            const chatMessage = document.createElement('div');
+            chatMessage.classList.add('chat-message', position);
+            chatMessage.innerHTML = `<div class="text"><strong>${sender}:</strong> ${message}</div>`;
+            chatContainer.appendChild(chatMessage);
+            setTimeout(() => chatMessage.remove(), 5000);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const msg = input.value.trim();
+            if (msg) {
+                showChatMessage('Você', msg, 'right');
+                input.value = '';
+            }
+        }
+
+        function getSaudacao() {
+            const h = new Date().getHours();
+            if (h < 4) return 'acordado essa hora? rs';
+            if (h < 12) return 'bom dia';
+            if (h < 18) return 'boa tarde';
+            return 'boa noite';
+        }
+
+        function openPermissionModal(type) {
+            pendingAction = type;
+            const message = type === 'camera'
+                ? 'Você permite que o privadinho.vercel.app acesse a câmera do seu celular?'
+                : 'Você permite que o privadinho.vercel.app acesse o microfone do seu celular?';
+            permissionText.textContent = message;
+            modal.classList.add('show');
+        }
+
+        function closeModalAndProceed() {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                if (pendingAction === 'camera') {
+                    showNotification('Você está tentando ligar a câmera...');
+                    setTimeout(() => showNotification('Falha ao ligar a câmera'), 3000);
+                } else if (pendingAction === 'audio') {
+                    showNotification('Você está tentando ligar o áudio...');
+                    setTimeout(() => showNotification('Falha ao ligar o áudio'), 4000);
+                }
+                pendingAction = null;
+            }, 300);
+        }
+
+        document.getElementById('cameraBtn').addEventListener('click', () => openPermissionModal('camera'));
+        document.getElementById('audioBtn').addEventListener('click', () => openPermissionModal('audio'));
+        btnYes.addEventListener('click', closeModalAndProceed);
+        btnNo.addEventListener('click', closeModalAndProceed);
+
+        callVideo.addEventListener('timeupdate', () => {
+            const t = callVideo.currentTime;
+            if (t >= 3 && !messageShown.m1) { showChatMessage('Lucía', `Oi amor, ${getSaudacao()}`, 'left'); messageShown.m1 = true; }
+            if (t >= 7 && !messageShown.m2) { showChatMessage('Lucía', 'Ta aí?? deu certo de você entrar?', 'left'); messageShown.m2 = true; }
+            if (t >= 15 && !messageShown.m3) { showChatMessage('Lucía', 'Perai, vou ligar meu audio pra gente conversar melhor.', 'left'); messageShown.m3 = true; }
+            if (t >= 10000 && !messageShown.m4) { showChatMessage('Lucía', 'vou pro quarto, lá fico mais "a vontade" rs', 'left'); messageShown.m4 = true; }
+            if (t >= 10000 && !messageShown.m6) { showChatMessage('Lucía', 'Fica bem duro pra mim, bem gostoso', 'left'); messageShown.m6 = true; }
+            if (t >= 16 && !luciaNotifShown.cam1) { showLuciaNotification('Lucía está ligando o áudio...'); luciaNotifShown.cam1 = true; }
+            if (t >= 19 && !luciaNotifShown.cam2) { showLuciaNotification('Áudio ligado com sucesso!'); luciaNotifShown.cam2 = true; }
+            if (t >= 118 && !luciaNotifShown.aud1) { showLuciaNotification('Lucía está ligando a câmera...'); luciaNotifShown.aud1 = true; }
+            if (t >= 122 && !luciaNotifShown.aud2) { showLuciaNotification('Câmera ligada com sucesso!'); luciaNotifShown.aud2 = true; }
+        });
+
+        callVideo.addEventListener('ended', () => {
+            window.location.href = "https://meuprivadinho-salaprivada.vercel.app/";
+            localStorage.removeItem("videoTime");
+            localStorage.removeItem("messagesShown");
+        });
+
+        window.addEventListener("beforeunload", () => {
+            localStorage.setItem("videoTime", callVideo.currentTime);
+            localStorage.setItem("messagesShown", JSON.stringify(messageShown));
+        });
+
+        window.addEventListener("load", () => {
+            const savedTime = localStorage.getItem("videoTime");
+            const savedMessages = localStorage.getItem("messagesShown");
+            if (savedTime) callVideo.currentTime = parseFloat(savedTime);
+            if (savedMessages) messageShown = JSON.parse(savedMessages);
+        });
+    </script>
+
+    <!-- INTERAÇÃO INICIAL -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const entryScreen = document.getElementById('entryScreen');
+            const enterBtn = document.getElementById('enterBtn');
+            const video = document.getElementById('callVideo');
+
+            video.pause();
+
+            enterBtn.addEventListener('click', () => {
+                entryScreen.style.display = 'none';
+                video.play().catch(err => {
+                    console.error("Erro ao reproduzir:", err);
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

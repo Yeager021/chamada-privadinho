@@ -1,156 +1,157 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vídeo com Som - Confirmação</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body {
-            background: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        .container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        video {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: none;
-        }
-        .blur { filter: blur(20px); transition: filter 1s; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chamada de Vídeo</title>
 
-        /* Tela de confirmação */
-        .confirm-box {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            padding: 30px 40px;
-            border-radius: 16px;
-            text-align: center;
-            max-width: 90%;
-            box-shadow: 0 0 20px rgba(255,255,255,0.1);
-            z-index: 10;
-        }
-        .confirm-box h2 {
-            font-size: 1.8em;
-            margin-bottom: 20px;
-        }
-        .confirm-box p {
-            font-size: 1.1em;
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-        .btn {
-            background: #00d4ff;
-            color: #000;
-            border: none;
-            padding: 12px 28px;
-            margin: 0 10px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            font-size: 1em;
-        }
-        .btn:hover { background: #00b8e6; transform: scale(1.05); }
-        .btn-no { background: #333; color: #fff; }
-        .btn-no:hover { background: #555; }
+  <!-- Evita cache do HTML antigo -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 
-        /* Mensagem de expirado */
-        .expired {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5em;
-            font-weight: bold;
-            text-align: center;
-            opacity: 0;
-            transition: opacity 1.5s;
-            width: 90%;
-        }
-        .show { opacity: 1; }
-    </style>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #4e54c8, #8f94fb);
+      color: #fff;
+    }
+    .container {
+      text-align: center;
+      background: #ffffff;
+      color: #333;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 400px;
+    }
+    .container h1 { font-size: 24px; margin-bottom: 15px; }
+    .container p { font-size: 18px; margin-bottom: 20px; }
+    .button {
+      background-color: #4e54c8;
+      color: #fff;
+      font-size: 16px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .button:hover { background-color: #6f73ef; }
+    .loading {
+      font-size: 18px;
+      margin-top: 20px;
+      animation: fadeIn 1s ease-in-out;
+    }
+    .hint {
+      font-size: 14px;
+      margin-top: 10px;
+      color: #555;
+    }
+    @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+  </style>
 </head>
 <body>
+  <div class="container" id="content"></div>
 
-    <div class="container">
-        <!-- Vídeo carregado via JavaScript -->
-        <video id="v" playsinline></video>
+  <script>
+    (function () {
+      const content = document.getElementById('content');
 
-        <!-- Tela de confirmação -->
-        <div class="confirm-box" id="confirm">
-            <h2>Reproduzir vídeo com som?</h2>
-            <p>Este é um vídeo privado. Deseja assistir agora?</p>
-            <button class="btn" id="sim">Sim, reproduzir</button>
-            <button class="btn btn-no" id="nao">Não</button>
-        </div>
+      // Compatibilidade: remove o flag antigo (versão que bloqueava de primeira)
+      if (localStorage.getItem('videoCallAccessed')) {
+        localStorage.removeItem('videoCallAccessed');
+      }
 
-        <!-- Mensagem de expirado -->
-        <div class="expired" id="expired">Esse vídeo privado expirou!</div>
-    </div>
+      const KEY = 'videoCallAccessTime'; // timestamp do primeiro acesso
+      const TIME_LIMIT = 720000; // 20s
+      const now = Date.now();
+      let start = parseInt(localStorage.getItem(KEY) || '0', 10);
 
-    <script>
-        // ====== COLOQUE SEU LINK AQUI ======
-        const VIDEO_URL = "http://video.vps.gnndigital.uk:8080/videos/videocam1.mp4"; // ← ALTERE ESTA LINHA
+      // Se não existe horário salvo, define agora (primeiro acesso)
+      if (!start) {
+        start = now;
+        localStorage.setItem(KEY, String(start));
+      }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const video = document.getElementById('v');
-            const confirmBox = document.getElementById('confirm');
-            const expiredMsg = document.getElementById('expired');
-            const btnSim = document.getElementById('sim');
-            const btnNao = document.getElementById('nao');
+      // Quanto tempo ainda resta antes de bloquear de vez
+      function msLeft() {
+        return Math.max(0, TIME_LIMIT - (Date.now() - start));
+      }
 
-            // ====== CARREGA VÍDEO VIA LINK ======
-            video.src = VIDEO_URL;
-            video.load(); // Força o carregamento
+      // Se já expirou a janela de tolerância, bloqueia
+      if (msLeft() === 0) {
+        showEnded();
+        return;
+      }
 
-            // Verifica se já foi visto
-            if (sessionStorage.getItem('videoVisto')) {
-                confirmBox.remove();
-                video.remove();
-                expiredMsg.classList.add('show');
-                return;
-            }
+      // Caso contrário, mostra o convite e o contador regressivo
+      showInvite();
 
-            // Botão SIM
-            btnSim.addEventListener('click', () => {
-                confirmBox.remove();
-                video.style.display = 'block';
+      function showEnded() {
+        content.innerHTML = `<div class="message">Esse convite já expirou...</div>`;
+      }
 
-                video.play().catch(err => {
-                    alert("Erro ao reproduzir: " + err.message);
-                });
+      function showInvite() {
+        content.innerHTML = `
+          <h1>Lucía convidou você para uma chamada de vídeo ao vivo...</h1>
+          <p>Clique no botão abaixo para aceitar o convite 👇</p>
+          <button class="button" id="joinButton">Participar agora</button>
+          <div class="hint">Janela de acesso: <span id="count"></span>s restantes</div>
+        `;
 
-                video.onended = () => {
-                    video.classList.add('blur');
-                    expiredMsg.classList.add('show');
-                    sessionStorage.setItem('videoVisto', 'true');
-                };
-            });
+        const joinButton = document.getElementById('joinButton');
+        joinButton.addEventListener('click', startLoadingSequence);
 
-            // Botão NÃO
-            btnNao.addEventListener('click', () => {
-                confirmBox.remove();
-                video.remove();
-                expiredMsg.classList.add('show');
-                sessionStorage.setItem('videoVisto', 'true');
-            });
-        });
-    </script>
+        const countEl = document.getElementById('count');
+        updateCountdown(); // atualiza imediatamente
 
+        // Atualiza o contador e bloqueia automaticamente ao expirar
+        const timer = setInterval(() => {
+          if (msLeft() <= 0) {
+            clearInterval(timer);
+            showEnded();
+            return;
+          }
+          updateCountdown();
+        }, 250);
+
+        function updateCountdown() {
+          const left = Math.ceil(msLeft() / 1000);
+          countEl.textContent = left;
+        }
+      }
+
+      function startLoadingSequence() {
+        const messages = [
+          "Confirmando conexão...",
+          "Lucía está online agora...",
+          "Entrando na sala ao vivo..."
+        ];
+        let index = 0;
+
+        content.innerHTML = `<div class="loading">${messages[index]}</div>`;
+        const loadingElement = content.querySelector('.loading');
+
+        const interval = setInterval(() => {
+          index++;
+          if (index < messages.length) {
+            loadingElement.textContent = messages[index];
+          } else {
+            clearInterval(interval);
+            window.location.href = "http://privadinho.uk:8081/";
+          }
+        }, 1500);
+      }
+    })();
+  </script>
 </body>
 </html>
